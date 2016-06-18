@@ -5,12 +5,12 @@
 _start:
 		sub             rsp, 2 * 128 * 8	; allocate memory for 2 long numbers
                 lea             rdi, [rsp + 128 * 8]	; move rdi to the beginning of the block for the first number
-                mov             rcx, 128		; max length of input numbers in bytes
+                mov             rcx, 128		; max length of input numbers in qwords
                 call            read_long		; read first number
                 mov             rdi, rsp		; move rdi to the beginning of the block for the second number
                 call            read_long		; read second number
                 mov		rsi, rdi		; rsi is now the second input number
-                lea             rdi, [rsp + 128 * 8]	; rdi id noe the first input number
+                lea             rdi, [rsp + 128 * 8]	; rdi is now the first input number
                 call            sub_long_long		; do the subtraction
 
                 call            write_long		; write the answer

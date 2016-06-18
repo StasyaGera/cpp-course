@@ -3,94 +3,44 @@
                 global          _start
                 
 _start:
-		sub             rsp, 4 * 128 * 8	; allocate memory for 2 long numbers and answer
-		
-                lea		rdi, [rsp + 2 * 128 * 8]; set the pointer to the beginning of the answer
-                mov		rcx, 2 * 128		; size of answer can be up to 2 times greater than size of input numbers
-                call		set_zero		; get rid of any trash in this part of memory
-                lea		r9, [rsp + 2 * 128 * 8]	; put answer register to needed place
-                
-                mov             rcx, 128		; max size of input numbers in qwords
-                
-                lea             rdi, [rsp + 128 * 8]	; prepare for reading
-                call            read_long		; read input #1
-                mov             rdi, rsp		; prepare for reading
-                call            read_long		; read input #2
-                mov		rsi, rdi		; move rsi to the beginning of the second input number
-                lea             rdi, [rsp + 128 * 8]	; move rdi to the beginning of the first input number
-                
-                call            mul_long_long		; do the multiplication
-                
-                mov             rcx, 2 * 128		; prepare for writing
+		sub             rsp, 2 * 128 * 8	; allocate memory for 2 long numbers
+                lea             rdi, [rsp + 128 * 8]	; move rdi to the beginning of the block for the first number
+                mov             rcx, 128		; max length of input numbers in bytes
+                call            read_long		; read first number
+                mov             rdi, rsp		; move rdi to the beginning of the block for the second number
+                call            read_long		; read second number
+                mov		rsi, rdi		; rsi is now the second input number
+                lea             rdi, [rsp + 128 * 8]	; rdi id noe the first input number
+                call            sub_long_long		; do the subtraction
+
                 call            write_long		; write the answer
 
                 mov             al, 0x0a
                 call            write_char		; write the new line symbol
 
                 jmp             exit
-                
-; multiplies two long numbers
-;    rdi -- address of multiplier #1 (long number)
-;    rsi -- address of multiplier #2 (long number)
-;    rcx -- length of long number in qwords
-; result:
-;    product is written to rdi
-mul_long_long:
-		push 		rsi
-		push 		rcx
-	
-		mov 		r14, rcx 		; start value of counter
-		xor 		r13, r13 		; rdi offset
-.outer_loop:
-		xor 		r10, r10 		; will be used to save carry
-		xor 		r11, r11 		; rsi offset
-		mov 		rbp, r14 		; restart the counter for inner loop
-		clc
-.inner_loop:
-		mov 		rax, [rsi + r11]	; get a piece of rsi
-		mov 		rbx, [rdi + r13]	; get a piece of rdi
-		mul 		rbx 			; mul rax and rbx, result in rax; overflow in rdx
-		add 		rax, r10 		; add carry from prev circle
-		adc 		rdx, 0 			; recalc new carry
-		lea 		r15, [r13 + r11]	; result offset
-		add 		[r9 + r15], rax 	; count result
-		adc 		rdx, 0 			; recalc new carry again
-		mov 		r10, rdx 		; save new carry
-		
- 		add 		r11, 8			; recalc rsi offset
-		dec 		rbp			; recalc inner loop counter
-		jnz 		.inner_loop		; go to next circle
-		
-		add 		r13, 8			; recalc rdi offset
-		dec 		rcx			; recalc outer loop counter
-		jnz 		.outer_loop		; go to next circle
-		
-		pop 		rcx
-		pop		rsi
-		
-		mov 		rdi, r9			; move rdi to the beginning of the answer
-		
-		ret
 
-; adds two long number
-;    rdi -- address of summand #1 (long number)
-;    rsi -- address of summand #2 (long number)
-;    rcx -- length of long numbers in qwords
+; subtracts two long numbers
+;     rdi -- address of minuend (long number)
+;     rsi -- address of subtrahend (long number)
+;     rcx -- length of long numbers in qwords
 ; result:
-;    sum is written to rdi
-add_long_long:
+;     residual is written to rdi
+sub_long_long:
                 push            rdi
                 push            rsi
                 push            rcx
 
                 clc
 .loop:
-                mov             rax, [rsi]
-                lea             rsi, [rsi + 8]
-                adc             [rdi], rax
-                lea             rdi, [rdi + 8]
-                dec             rcx
-                jnz             .loop
+                mov             rax, [rdi]		; put a piece of rdi to rax
+                sbb             rax, [rsi]		; subtract a piece of rsi from rax, answer is in rax
+                lea             rsi, [rsi + 8]		; move rsi to the beginning of the unused part
+                mov		[rdi], rax		; write new piece of the answer to the used part of rdi
+                lea             rdi, [rdi + 8]		; move rdi to the beginning of the unused part
+                
+                dec             rcx			; recalc loop counter
+                jnz             .loop			; go to next circle
 
                 pop             rcx
                 pop             rsi
@@ -122,7 +72,32 @@ add_long_short:
                 pop             rcx
                 pop             rdi
                 ret
-   
+
+; adds two long numbers
+;    rdi -- address of summand #1 (long number)
+;    rsi -- address of summand #2 (long number)
+;    rcx -- length of long numbers in qwords
+; result:
+;    sum is written to rdi
+add_long_long:
+                push            rdi
+                push            rsi
+                push            rcx
+
+                clc
+.loop:
+                mov             rax, [rsi]
+                lea             rsi, [rsi + 8]
+                adc             [rdi], rax
+                lea             rdi, [rdi + 8]
+                dec             rcx
+                jnz             .loop
+
+                pop             rcx
+                pop             rsi
+                pop             rdi
+                ret
+
 ; multiplies long number by a short
 ;    rdi -- address of multiplier #1 (long number)
 ;    rbx -- multiplier #2 (64-bit unsigned)
@@ -133,7 +108,8 @@ mul_long_short:
                 push            rax
                 push            rdi
                 push            rcx
-
+		;push		rsi
+                
                 xor             rsi, rsi
 .loop:
                 mov             rax, [rdi]
@@ -146,10 +122,20 @@ mul_long_short:
                 dec             rcx
                 jnz             .loop
 
+                ;pop		rsi
                 pop             rcx
                 pop             rdi
                 pop             rax
                 ret
+
+; multiplies two long numbers
+;     rdi -- address of multiplier #1 (long number)
+;     rsi -- address of multiplier #2 (long number)
+;     rcx -- length of long numbers in qwords
+; result:
+;     product is written to rdi
+mul_long_long:
+		ret
 
 ; divides long number by a short
 ;    rdi -- address of dividend (long number)
@@ -162,7 +148,8 @@ div_long_short:
                 push            rdi
                 push            rax
                 push            rcx
-
+		;push		rdx
+                
                 lea             rdi, [rdi + 8 * rcx - 8]
                 xor             rdx, rdx
 
@@ -174,6 +161,7 @@ div_long_short:
                 dec             rcx
                 jnz             .loop
 
+                ;pop		rdx
                 pop             rcx
                 pop             rax
                 pop             rdi
