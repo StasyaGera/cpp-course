@@ -10,7 +10,7 @@ _start:
                 call		set_zero		; get rid of any trash in this part of memory
                 lea		r9, [rsp + 2 * 128 * 8]	; put answer register to needed place
                 
-                mov             rcx, 128		; max size of input numbers in qwords
+                mov             rcx, 128		; max size of input numbers in bytes
                 
                 lea             rdi, [rsp + 128 * 8]	; prepare for reading
                 call            read_long		; read input #1

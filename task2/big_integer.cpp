@@ -381,7 +381,20 @@ big_integer big_integer::operator-() const
 
 big_integer big_integer::operator~() const
 {
-	return -(*this) - 1;
+	big_integer result = *this;
+
+    if (result.sign < 0)
+        result = result.convert();
+
+	for (size_t i = 0; i < result.number.size(); i++)
+		result.number[i] ^= (BASE - 1);
+
+	result.sign *= -1;
+
+    if (result.sign < 0)
+        result = result.convert();
+
+	return result;
 }
 
 big_integer& big_integer::operator++()
