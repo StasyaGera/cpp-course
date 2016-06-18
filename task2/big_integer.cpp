@@ -170,20 +170,25 @@ big_integer& big_integer::operator/=(big_integer const& rhs)
     {
         carry = (carry << POWER) + this->number[i];
 
-        int l = 0, r = BASE, m = (l + r) / 2;
-        while (r - l > 1)
+        if (carry >= rhs)
         {
-            big_integer temp = m * divider;
-            if (temp <= carry)
-                l = m;
-            else
-                r = m;
+            int l = 0, r = BASE, m = (l + r) / 2;
+            while (r - l > 1)
+            {
+                big_integer temp = m * divider;
+                if (temp <= carry)
+                    l = m;
+                else
+                    r = m;
 
-            m = (l + r) / 2;
+                m = (l + r) / 2;
+            }
+
+            this->number[i] = (uint32_t) l;
+            carry -= l * divider;
         }
-
-        this->number[i] = (uint32_t) l;
-        carry -= l * divider;
+        else if ((uint32_t) i == this->number.size() - 1)
+            this->number.pop_back();
     }
 
     this->trim();
@@ -638,6 +643,7 @@ big_integer big_integer::convert() const
 
 // divides (this) by (rhs)
 // returns remainder
+// does not change sign
 uint32_t big_integer::div_long_short(uint32_t rhs)
 {
     int64_t carry = 0;
