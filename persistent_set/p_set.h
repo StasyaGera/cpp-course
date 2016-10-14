@@ -63,8 +63,8 @@ public:
 
 private:
     void invalidate_iterators();
-    iterator find_max(node_ptr r, std::stack<persistent_set::node_ptr>* path) const;
-    iterator find_min(node_ptr r, std::stack<persistent_set::node_ptr>* path) const;
+    iterator find_max(node_ptr r, std::stack<persistent_set::node_ptr> path) const;
+    iterator find_min(node_ptr r, std::stack<persistent_set::node_ptr> path) const;
 };
 
 struct persistent_set::iterator

@@ -104,7 +104,8 @@ void persistent_set::erase(persistent_set::iterator it) {
     } else if (my->right == nullptr) {
         prev = my->left;
     } else {
-        value_type mindata = (it.set.find_min(my->right, new std::stack<node_ptr>)).path.top()->data;
+        std::stack<node_ptr> empty;
+        value_type mindata = (it.set.find_min(my->right, empty)).path.top()->data;
 
         persistent_set small;
         small.root = my;
@@ -132,29 +133,30 @@ void persistent_set::erase(persistent_set::iterator it) {
     return;
 }
 
-persistent_set::iterator persistent_set::find_max(node_ptr r, std::stack<persistent_set::node_ptr>* path) const {
+persistent_set::iterator persistent_set::find_max(node_ptr r, std::stack<node_ptr> path) const {
     while (r != nullptr) {
-        path->push(r);
+        path.push(r);
         r = r->right;
     }
-    return persistent_set::iterator(*path, *this);
+    return persistent_set::iterator(path, *this);
 }
 
-persistent_set::iterator persistent_set::find_min(node_ptr r, std::stack<node_ptr>* path) const {
+persistent_set::iterator persistent_set::find_min(node_ptr r, std::stack<node_ptr> path) const {
     while (r != nullptr) {
-        path->push(r);
+        path.push(r);
         r = r->left;
     }
-    return iterator(*path, *this);
+    return iterator(path, *this);
 }
 
 persistent_set::iterator persistent_set::begin() const {
     if (this->root == nullptr) return this->end();
-    return this->find_min(this->root, new std::stack<node_ptr>);
+    std::stack<node_ptr> empty;
+    return this->find_min(this->root, empty);
 }
 
 persistent_set::iterator persistent_set::end() const {
-    std::stack<node_ptr> path = this->find_max(this->root, new std::stack<node_ptr>).path;
+    std::stack<node_ptr> empty, path = this->find_max(this->root, empty).path;
     path.push(afterlast);
     return persistent_set::iterator(path, *this);
 }
@@ -175,13 +177,14 @@ const persistent_set::value_type &persistent_set::iterator::operator*() const {
 
 persistent_set::iterator &persistent_set::iterator::operator++() {
     node_ptr my = this->path.top();
+    std::stack<node_ptr> empty;
 
     if (my->right != nullptr) {
-        this->path = this->set.find_min(my->right, &(this->path)).path;
+        this->path = this->set.find_min(my->right, this->path).path;
         return *this;
     } else if (*this == this->set.end()) {
         return *this;
-    } else if (*this == this->set.find_max(this->get_root(), new std::stack<node_ptr>)) {
+    } else if (*this == this->set.find_max(this->get_root(), empty)) {
         this->path = this->set.end().path;
         return *this;
     } else {
@@ -202,12 +205,13 @@ persistent_set::iterator persistent_set::iterator::operator++(int) {
 persistent_set::iterator &persistent_set::iterator::operator--() {
     node_ptr my = this->path.top();
     if (my->left != nullptr) {
-        this->path = this->set.find_max(my->left, &(this->path)).path;
+        this->path = this->set.find_max(my->left, this->path).path;
         return *this;
     } else if (*this == this->set.begin()) {
         return *this;
     } else if (*this == this->set.end()) {
-        this->path = this->set.find_max(this->get_root(), new std::stack<node_ptr>).path;
+        std::stack<node_ptr> empty;
+        this->path = this->set.find_max(this->get_root(), empty).path;
         return *this;
     } else {
         this->path.pop();
