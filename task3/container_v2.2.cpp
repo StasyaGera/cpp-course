@@ -116,33 +116,17 @@ void container::copy(size_t i, container const &other, size_t l, size_t r)
         return;
     }
 
-    if (sz == 1) {
-        uint32_t temp = data_short;
-        new_data_long(r - l + 1, 0);
-
-        size_t j = (i == 1) ? 0 : r - l;
-        data_long[j + 1] = temp;
-        if (other.size() == 1) {
-            data_long[i + 1] = other.data_short;
-            sz = 2;
-            return;
-        }
-    } else if (sz > 1) {
-        uint32_t *temp = data_long;
-        new_data_long(r - l + sz, 0);
-
-        for (size_t j = 1; j <= i; j++)
-            data_long[j] = temp[j];
-        for (size_t j = i + (r - l); j < (r - l) + sz; j++)
-            data_long[j + 1] = temp[j - (r - l) + 1];
-
-        delete_data_long(temp);
-    } else {
-        new_data_long(r - l + sz, 0);
+    size_t temp = sz;
+    resize(r - l + sz + 1);
+    for (size_t j = 0; j < temp - i; j++)
+        data_long[sz - j] = data_long[temp - j];
+    if (other.sz > 1) {
+        for (size_t j = l + 1; j <= r; j++)
+            data_long[i + j - l] = other.data_long[j];
     }
+    else if (other.sz == 1)
+        data_long[i + 1] = other.data_short;
 
-    for (size_t j = l + 1; j <= r; j++)
-        data_long[i + (j - l)] = other.data_long[j];
     sz = r - l + sz;
 }
 
