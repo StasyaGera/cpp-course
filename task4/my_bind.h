@@ -39,12 +39,12 @@ namespace bind_arg_types
 // operator() for const values
     template <typename T>
     struct my_const {
-        my_const(T value)
-            : value(std::move(value)) //move ctor
+        my_const(T&& value)
+            : value(std::forward<T>(value))
         {}
 
         template <typename... Args>
-        T operator()(Args const&...) const {
+        T& operator()(Args const&...) {
             return value;
         }
 
@@ -59,7 +59,7 @@ namespace bind_arg_types
         constexpr get() {}
 
         template <typename... Args>
-        auto&& operator()(Args&&... args) const {
+        auto&& operator()(Args&&... args) {
             return std::get<I>(std::forward_as_tuple(args...));
         };
     };
@@ -69,9 +69,9 @@ namespace bind_arg_types
     struct my_bind
     {
         //would be better if it was private
-        my_bind(F&& f, Args&&... args) //rvalue-references (were moved)
+        my_bind(F&& f, Args&&... args) //universal references
                 : f(std::forward<F>(f)),
-                  less_args(std::forward_as_tuple(args...))
+                  less_args(std::forward<Args>(args)...)
         {}
 
         template <typename... More_args>
@@ -85,7 +85,7 @@ namespace bind_arg_types
 
 
         template <size_t... Indices, typename... More_args>
-        auto call(std::index_sequence<Indices...>, More_args&&... more_args) { //universal reference, forwarded
+        auto call(std::index_sequence<Indices...>, More_args&&... more_args) { //universal reference
             return f(((std::get<Indices>(less_args))(std::forward<More_args>(more_args)...))...);
         }
     };
@@ -99,8 +99,8 @@ constexpr my_placeholder<1> _2;
 constexpr my_placeholder<2> _3;
 
 template <typename F, typename... Args>
-bind_arg_types::my_bind<F, Args...> bind(F function, Args... args) { // copied, so can be moved
-    return bind_arg_types::my_bind<F, Args...>(std::move(function), std::move(args)...);
+bind_arg_types::my_bind<F, Args...> bind(F&& function, Args&&... args) { // universal references
+    return bind_arg_types::my_bind<F, Args...>(std::forward<F>(function), std::forward<Args>(args)...);
 };
 
 #endif //MY_BIND_H
