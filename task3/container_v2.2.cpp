@@ -1,4 +1,5 @@
 #include <stdexcept>
+#include <iostream>
 #include "container_v2.2.h"
 
 container::container()
@@ -235,7 +236,11 @@ inline void container::get_ownership()
 inline void container::new_data_long(size_t sz, uint32_t value)
 {
     capacity = sz << 1;
-    data_long = new uint32_t[capacity];
+    try {
+        data_long = new uint32_t[capacity];
+    } catch (std::bad_alloc& e) {
+        std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
+    }
     std::fill_n(data_long, sz + 1, value);
     data_long[0] = 1;
 }
@@ -248,7 +253,7 @@ inline void container::delete_data_long()
         delete[] data_long;
 }
 
-inline void container::delete_data_long(uint32_t *ptr) {
+inline void container::delete_data_long(uint32_t* ptr) {
     if (ptr[0] > 1)
         ptr[0]--;
     else
