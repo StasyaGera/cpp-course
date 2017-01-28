@@ -39,8 +39,8 @@ namespace bind_arg_types
 // operator() for const values
     template <typename T>
     struct my_const {
-        my_const(T value) // copied here
-            : value(std::move(value)) // move-ctor of T
+        my_const(T value)
+            : value(std::move(value)) //move ctor
         {}
 
         template <typename... Args>
@@ -59,8 +59,8 @@ namespace bind_arg_types
         constexpr get() {}
 
         template <typename... Args>
-        auto operator()(Args const&... args) const {
-            return std::get<I>(std::make_tuple(args...));
+        auto&& operator()(Args&&... args) const {
+            return std::get<I>(std::forward_as_tuple(args...));
         };
     };
 
@@ -86,7 +86,7 @@ namespace bind_arg_types
 
         template <size_t... Indices, typename... More_args>
         auto call(std::index_sequence<Indices...>, More_args&&... more_args) { //universal reference, forwarded
-            return f((std::get<Indices>(less_args)(std::forward<More_args>(more_args)...))...);
+            return f(((std::get<Indices>(less_args))(std::forward<More_args>(more_args)...))...);
         }
     };
 }
