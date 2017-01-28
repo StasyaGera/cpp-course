@@ -81,12 +81,12 @@ namespace bind_arg_types
 
     private:
         F f;
-        std::tuple< typename arg_wrapper<Args>::type... > less_args;
+        std::tuple< typename arg_wrapper< typename std::decay<Args>::type >::type... > less_args;
 
 
         template <size_t... Indices, typename... More_args>
         auto call(std::index_sequence<Indices...>, More_args&&... more_args) { //universal reference
-            return f(((std::get<Indices>(less_args))(std::forward<More_args>(more_args)...))...);
+            return f(std::get<Indices>(less_args)(std::forward<More_args>(more_args)...)...);
         }
     };
 }
