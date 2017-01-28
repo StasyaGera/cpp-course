@@ -31,8 +31,8 @@ container::container(container const& other)
     if (other.sz == 1)
         this->data_short = other.data_short;
     else if (other.sz > 1) {
+        other.data_long[0]++;
         this->data_long = other.data_long;
-        this->data_long[0]++;
     }
 }
 
@@ -49,7 +49,6 @@ void container::assign(size_t sz, uint32_t value)
             if (data_long[0] > 1)
                 get_ownership();
             std::fill_n(data_long, sz + 1, value);
-            this->data_long[0] = 1;
             this->sz = sz;
             return;
         }
@@ -227,7 +226,13 @@ inline void container::get_ownership()
         data_long[0]--;
         uint32_t *temp = data_long;
 
-        new_data_long(sz, 0);
+        try {
+            data_long = new uint32_t[capacity + 1];
+        } catch (std::bad_alloc& e) {
+            std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
+        }
+        data_long[0] = 1;
+
         for (size_t i = 1; i <= sz; i++)
             data_long[i] = temp[i];
     }
@@ -237,7 +242,7 @@ inline void container::new_data_long(size_t sz, uint32_t value)
 {
     capacity = sz << 1;
     try {
-        data_long = new uint32_t[capacity];
+        data_long = new uint32_t[capacity + 1];
     } catch (std::bad_alloc& e) {
         std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
     }
