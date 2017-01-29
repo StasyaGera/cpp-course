@@ -26,7 +26,8 @@ container::container(size_t sz, uint32_t value)
 }
 
 container::container(container const& other)
-        : sz(other.sz)
+        : sz(other.sz),
+          capacity(other.capacity)
 {
     if (other.sz == 1)
         this->data_short = other.data_short;
@@ -44,15 +45,15 @@ container::~container()
 
 void container::assign(size_t sz, uint32_t value)
 {
-    if (this->sz > 1 || reserved) {
-        if (1 < sz && sz <= capacity) {
-            if (data_long[0] > 1)
-                get_ownership();
+    if (this->sz > 1 || reserved) {     // data_long is allocated already
+        if (1 < sz && sz <= capacity) { // but we have enough storage (and no need to use short data)
+            if (data_long[0] > 1)       // if we are not a unique owner
+                get_ownership();        // make a copy
             std::fill_n(data_long, sz + 1, value);
             this->sz = sz;
             return;
         }
-        delete_data_long();
+        delete_data_long(); //if we don't have enough storage then prepare for new alloc
     }
 
     if (sz <= 1)
@@ -65,26 +66,31 @@ void container::assign(size_t sz, uint32_t value)
 
 void container::resize(size_t sz)
 {
-    if (sz == this->sz)
+    if (sz == this->sz) // stupid user
         return;
     if ((this->sz > 1 || reserved) && (capacity >> 1) < sz && sz <= capacity) {
+        // 1. we already have allocated data long
+        // 2. new size is larger than half of the capacity (we don't want to trim our memory)
+        // 2+. we are not going to switch to data short
+        // 3. we already have enough storage
         this->sz = sz;
         return;
     }
 
-    if (this->sz > 1 || reserved) {
-        uint32_t* temp = data_long;
-        if (sz > 1) {
-            new_data_long(sz, 0);
-            for (size_t i = 1; i <= std::min(this->sz, sz); i++)
+    if (this->sz > 1 || reserved) { // we have allocated data long, but we want to allocate another
+        uint32_t* temp = data_long; // temporary pointer to current data long
+
+        if (sz > 1) {               // we are not going to switch to data short
+            new_data_long(sz, 0);   // allocate (sz << 1) + 1
+            for (size_t i = 1; i <= std::min(this->sz, sz); i++) // copy old data from temp
                 data_long[i] = temp[i];
-        } else if (sz == 1)
-            data_short = temp[1];
-        delete_data_long(temp);
-    } else {
+        } else if (sz == 1)         // we will switch to data short
+            data_short = temp[1];   // copy old data
+        delete_data_long(temp);     // free old data
+    } else { // we don't have allocated data long => nothing to free
         uint32_t temp = data_short;
         if (sz > 1) {
-            new_data_long(sz, 0);
+            new_data_long(sz, 0);   // allocate new memory
             data_long[1] = temp;
         }
     }
@@ -245,6 +251,7 @@ inline void container::new_data_long(size_t sz, uint32_t value)
         data_long = new uint32_t[capacity + 1];
     } catch (std::bad_alloc& e) {
         std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
+        throw e;
     }
     std::fill_n(data_long, sz + 1, value);
     data_long[0] = 1;
@@ -252,6 +259,7 @@ inline void container::new_data_long(size_t sz, uint32_t value)
 
 inline void container::delete_data_long()
 {
+    reserved = false;
     if (data_long[0] > 1)
         data_long[0]--;
     else

@@ -71,7 +71,7 @@ namespace bind_arg_types
         //would be better if it was private
         my_bind(F&& f, Args&&... args) //universal references
                 : f(std::forward<F>(f)),
-                  less_args(std::forward<Args>(args)...)
+                  less_args(std::forward<typename std::decay<Args>::type>(args)...)
         {}
 
         template <typename... More_args>
