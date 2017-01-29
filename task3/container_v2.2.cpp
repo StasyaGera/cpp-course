@@ -54,7 +54,7 @@ void container::assign(size_t sz, uint32_t value)
             this->sz = sz;
             return;
         }
-        delete_data_long(); //if we don't have enough storage then prepare for new alloc
+        delete_data_long();             //if we don't have enough storage then prepare for new alloc
     }
 
     if (sz <= 1)
@@ -143,7 +143,7 @@ void container::copy(size_t i, container const &other, size_t l, size_t r)
 container &container::operator=(container const &other)
 {
     if (capacity > 1)
-        delete_data_long(data_long); // free old long data
+        delete_data_long(); // free old long data
 
     sz = other.sz;
     capacity = other.capacity;
@@ -170,6 +170,9 @@ uint32_t const &container::operator[](size_t i) const
 
 uint32_t &container::operator[](size_t i)
 {
+    if (i >= sz) {
+        std::cout << "warning";
+    }
     if (capacity == 1)
         return data_short;
     get_ownership();
@@ -223,7 +226,7 @@ void container::pop_back()
 
     if (sz == 2) {                   // we want to switch to short data
         uint32_t temp = data_long[1];
-        delete_data_long(data_long); // so here we free long data
+        delete_data_long();          // so here we free long data
         data_short = temp;
     }
 
@@ -245,6 +248,7 @@ inline void container::get_ownership()
             data_long = new uint32_t[capacity + 1]; // allocate new memory
         } catch (std::bad_alloc& e) {
             std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
+            throw e;
         }
         data_long[0] = 1;           // set the refcount to 1
 
