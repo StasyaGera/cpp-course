@@ -40,7 +40,10 @@ namespace bind_arg_types
     template <typename T>
     struct my_const {
         my_const(T&& value)
-            : value(std::forward<T>(value))
+            : value(std::move(value))
+        {}
+        my_const(T const& value)
+            : value(value)
         {}
 
         template <typename... Args>
@@ -71,7 +74,7 @@ namespace bind_arg_types
         //would be better if it was private
         my_bind(F&& f, Args&&... args) //universal references
                 : f(std::forward<F>(f)),
-                  less_args(std::forward<typename std::decay<Args>::type>(args)...)
+                  less_args(std::forward<Args>(args)...)
         {}
 
         template <typename... More_args>
@@ -80,7 +83,7 @@ namespace bind_arg_types
         }
 
     private:
-        F f;
+        typename std::decay<F>::type f;
         std::tuple< typename arg_wrapper< typename std::decay<Args>::type >::type... > less_args;
 
 

@@ -16,7 +16,7 @@ container::container(size_t sz)
         new_data_long(sz, 0);
 }
 
-container::container(size_t sz, uint32_t value)
+container::container(size_t sz, uint32_t const& value)
         : sz(sz)
 {
     if (sz == 1)
@@ -31,12 +31,15 @@ container::container(container const& other)
 {
     if (other.capacity == 1)
         this->data_short = other.data_short;
-    else if (other.sz == 1)
+    else if (other.sz == 1) {
         this->data_short = other.data_long[1];
+        this->capacity = 1;
+    }
     else if (other.sz > 1) {
         other.data_long[0]++;
         this->data_long = other.data_long;
-    }
+    } else
+        capacity = 1;
 }
 
 container::~container()
@@ -45,12 +48,12 @@ container::~container()
         delete_data_long();
 }
 
-void container::assign(size_t sz, uint32_t value)
+void container::assign(size_t sz, uint32_t const& value)
 {
     if (capacity > 1) {                 // data long is allocated already
         if (1 < sz && sz <= capacity) { // but we have enough storage (and no need to use short data)
             get_ownership();            // make a copy if we are not a unique user
-            std::fill_n(data_long, sz + 1, value);
+            std::fill_n(data_long + 1, sz, value);
             this->sz = sz;
             return;
         }
@@ -75,11 +78,12 @@ void container::resize(size_t sz)
         // 2. new size is larger than half of the capacity (we don't want to trim our memory)
         // 2+. we are not going to switch to data short
         // 3. we already have enough storage
+        std::fill_n(data_long + this->sz + 1, sz - this->sz, 0);
         this->sz = sz;
         return;
     }
 
-    if (capacity > 1) {             // we have allocated data long, but we want to allocate another
+    if (capacity > 1) {             // we have allocated data long, but we can't use it
         uint32_t* temp = data_long; // temporary pointer to current data long
 
         if (sz > 1) {               // we are not going to switch to data short
@@ -113,7 +117,7 @@ void container::reserve(size_t sz)
     this->sz = temp;
 }
 
-void container::copy(size_t i, container const &other, size_t l, size_t r)
+void container::copy(size_t i, container const& other, size_t l, size_t r)
 {
     if (r <= l)
         throw std::invalid_argument(
@@ -127,7 +131,7 @@ void container::copy(size_t i, container const &other, size_t l, size_t r)
     }
 
     size_t temp = sz;
-    resize(r - l + sz + 1);
+    resize(r - l + sz);
     for (size_t j = 0; j < temp - i; j++)
         data_long[sz - j] = data_long[temp - j];
     if (other.sz > 1) {
@@ -136,11 +140,42 @@ void container::copy(size_t i, container const &other, size_t l, size_t r)
     }
     else if (other.sz == 1)
         data_long[i + 1] = other.data_short;
-
-    sz = r - l + sz;
 }
 
-container &container::operator=(container const &other)
+void container::append(container const& other)
+{
+    if (sz == 0 && other.sz == 1) {
+        if (capacity == 1)
+            data_short = other[0];
+        else {
+            get_ownership();
+            data_long[1] = other[0];
+        }
+        sz = 1;
+        return;
+    }
+
+    if (capacity == 1) {
+        uint32_t temp = data_short;
+        new_data_long(other.sz + 1, 0);
+        data_long[1] = temp;
+    } else if (capacity < sz + other.sz) {
+        uint32_t* temp = data_long;
+        new_data_long(sz + other.sz, 0);
+        for (size_t i = 1; i < sz; i++) {
+            data_long[i] = temp[i];
+        }
+        delete_data_long(temp);
+    }
+
+    for (size_t i = 0; i < other.sz; i++)
+        data_long[1 + sz + i] = other[i];
+
+    sz += other.sz;
+    return;
+}
+
+container& container::operator=(container const& other)
 {
     if (capacity > 1)
         delete_data_long(); // free old long data
@@ -149,37 +184,38 @@ container &container::operator=(container const &other)
     capacity = other.capacity;
     if (other.capacity == 1)
         data_short = other.data_short;
-    else if (sz == 1) {
+    else if (other.sz == 1) {
         data_short = other.data_long[1];
         capacity = 1;
     } else if (sz > 1) {
         data_long = other.data_long; // no real copy
         data_long[0]++;              // subscribe as owner
-    } else if (sz == 0)
-        capacity = 0;
+    } else
+        capacity = 1;
 
     return *this;
 }
 
-uint32_t const &container::operator[](size_t i) const
+uint32_t const& container::operator[](size_t i) const
 {
-    if (capacity == 1)
+    if (capacity == 1) {
+        if (i) throw std::out_of_range("big integer: container: in function operator[]");
         return data_short;
-    return data_long[i + 1];
-}
-
-uint32_t &container::operator[](size_t i)
-{
-    if (i >= sz) {
-        std::cout << "warning";
     }
-    if (capacity == 1)
+    return data_long[i + 1];
+}
+
+uint32_t& container::operator[](size_t i)
+{
+    if (capacity == 1) {
+        if (i) throw std::out_of_range("big integer: container: in function operator[]");
         return data_short;
+    }
     get_ownership();
     return data_long[i + 1];
 }
 
-uint32_t const &container::back() const
+uint32_t const& container::back() const
 {
     if (sz == 0)
         throw std::out_of_range(
@@ -191,7 +227,7 @@ uint32_t const &container::back() const
     return data_long[sz];
 }
 
-uint32_t &container::back()
+uint32_t& container::back()
 {
     if (sz == 0)
         throw std::out_of_range(
@@ -204,7 +240,7 @@ uint32_t &container::back()
     return data_long[sz];
 }
 
-void container::push_back(const uint32_t &value)
+void container::push_back(uint32_t const& value)
 {
     if (sz == 0) {
         sz = 1;
@@ -223,6 +259,9 @@ void container::pop_back()
         throw std::out_of_range(
                 "big_integer: container: in function pop_back(): no elements"
         );
+
+    if (sz == 1 && capacity > 1)
+        delete_data_long();
 
     if (sz == 2) {                   // we want to switch to short data
         uint32_t temp = data_long[1];
@@ -257,7 +296,7 @@ inline void container::get_ownership()
     }   // we don't need to free copied pointer's mem as there are other owners
 }
 
-inline void container::new_data_long(size_t sz, uint32_t value)
+inline void container::new_data_long(size_t sz, uint32_t const& value)
 {
     capacity = sz << 1;
     try {
@@ -266,7 +305,7 @@ inline void container::new_data_long(size_t sz, uint32_t value)
         std::cout << "unsuccessful memory allocation: " << e.what() << std::endl;
         throw e;
     }
-    std::fill_n(data_long, sz + 1, value);
+    std::fill_n(data_long + 1, sz, value);
     data_long[0] = 1;
 }
 
