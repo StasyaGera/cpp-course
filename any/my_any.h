@@ -3,6 +3,7 @@
 
 #include <typeinfo>
 #include <memory>
+#include <iostream>
 
 struct my_any
 {
@@ -75,13 +76,12 @@ struct my_any
     struct big_tag {};
 
     template<typename T>
-    struct is_small : std::integral_constant<
+    using is_small = typename std::integral_constant<
             bool,
             sizeof(std::decay_t<T>) <= MAX_SZ &&
             alignof(std::decay_t<T>) <= MAX_SZ &&
-            std::is_nothrow_move_assignable<T>::value
-    >
-    {};
+            std::is_nothrow_move_constructible<T>::value
+    >;
 
     template<typename T>
     void ctor(T&& value, small_tag)
@@ -101,7 +101,7 @@ struct my_any
     }
 
     template<typename T,
-            typename = typename std::enable_if<!std::is_same<std::decay<T>, my_any>::value>::type>
+            typename = typename std::enable_if<!std::is_same<std::decay_t<T>, my_any>::value>::type>
     my_any(T&& value)
         : creator(my_any::my_create<typename std::decay<T>::type>),
           copier(my_any::my_copy<typename std::decay<T>::type>),
@@ -109,7 +109,7 @@ struct my_any
           typer(my_any::my_type<typename std::decay<T>::type>)
     {
         ctor(std::forward<T>(value),
-               typename std::conditional<is_small<std::decay<T>>::value, small_tag, big_tag>::type());
+             typename std::conditional<is_small<std::decay_t<T>>::value, small_tag, big_tag>::type());
     }
 
     my_any& operator=(my_any const& rhs)
