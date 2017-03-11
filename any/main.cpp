@@ -53,8 +53,6 @@ int main() {
 
     std::shared_ptr<int> ptrc(new int);
 
-
-    return 0;
     using any = my_any;
 //    using any_cast;
 //    using linb::bad_any_cast;
