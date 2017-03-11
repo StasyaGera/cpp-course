@@ -70,24 +70,46 @@ struct my_any
         }
     }
 
+
+    struct small_tag {};
+    struct big_tag {};
+
+    template<typename T>
+    struct is_small : std::integral_constant<
+            bool,
+            sizeof(std::decay_t<T>) <= MAX_SZ &&
+            alignof(std::decay_t<T>) <= MAX_SZ &&
+            std::is_nothrow_move_assignable<T>::value
+    >
+    {};
+
+    template<typename T>
+    void ctor(T&& value, small_tag)
+    {
+        copier(&value, &local_data);
+        deleter = my_any::my_stack_delete<typename std::decay<T>::type>;
+        data_place = STACK;
+    }
+
+    template<typename T>
+    void ctor(T&& value, big_tag)
+    {
+        heap_data = creator();
+        copier(&value, heap_data);
+        deleter = my_any::my_heap_delete<typename std::decay<T>::type>;
+        data_place = HEAP;
+    }
+
     template<typename T,
-            typename = typename std::enable_if<!std::is_same<my_any, std::decay_t<T>>::value>::type>
+            typename = typename std::enable_if<!std::is_same<std::decay<T>, my_any>::value>::type>
     my_any(T&& value)
         : creator(my_any::my_create<typename std::decay<T>::type>),
           copier(my_any::my_copy<typename std::decay<T>::type>),
           mover(my_any::my_move<typename std::decay<T>::type>),
           typer(my_any::my_type<typename std::decay<T>::type>)
     {
-        if (sizeof(std::decay_t<T>) <= MAX_SZ && alignof(std::decay_t<T>) <= MAX_SZ) {
-            copier(&value, &local_data);
-            deleter = my_any::my_stack_delete<typename std::decay<T>::type>;
-            data_place = STACK;
-        } else {
-            heap_data = creator();
-            copier(&value, heap_data);
-            deleter = my_any::my_heap_delete<typename std::decay<T>::type>;
-            data_place = HEAP;
-        }
+        ctor(std::forward<T>(value),
+               typename std::conditional<is_small<std::decay<T>>::value, small_tag, big_tag>::type());
     }
 
     my_any& operator=(my_any const& rhs)
@@ -245,7 +267,6 @@ void swap(my_any& lhs, my_any& rhs)
             rhs.deleter(&rhs.local_data);
 
             lhs.mover(&tmp, &rhs.local_data);
-
             lhs.deleter(&tmp);
         }
         else if (rhs.data_place == my_any::state::HEAP) {
