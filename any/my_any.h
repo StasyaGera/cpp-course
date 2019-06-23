@@ -13,8 +13,18 @@ struct my_any
     typedef void  (*copier_t)(const void*, void*);
     typedef void  (*mover_t)(void*, void*);
     typedef void  (*deleter_t)(void*);
+    typedef const std::type_info& (*type_t)(void);
 
-    typedef const std::type_info & (*type_t)(void);
+    struct small_tag {};
+    struct big_tag {};
+
+    template<typename T>
+    using is_small = typename std::integral_constant<
+            bool,
+            sizeof(std::decay_t<T>) <= MAX_SZ &&
+            alignof(std::decay_t<T>) <= MAX_SZ &&
+            std::is_nothrow_move_constructible<T>::value
+    >;
 
     constexpr my_any()
         : data_place(NONE),
@@ -41,7 +51,7 @@ struct my_any
                 copier(other.heap_data, heap_data);
                 break;
             case STACK:
-                copier(&other.local_data, &local_data);
+                copier(&other.stack_data, &stack_data);
                 break;
             default:
                 break;
@@ -64,29 +74,17 @@ struct my_any
                 other.data_place = NONE;
                 break;
             case STACK:
-                mover(&other.local_data, &local_data);
+                mover(&other.stack_data, &stack_data);
                 break;
             default:
                 break;
         }
     }
 
-
-    struct small_tag {};
-    struct big_tag {};
-
-    template<typename T>
-    using is_small = typename std::integral_constant<
-            bool,
-            sizeof(std::decay_t<T>) <= MAX_SZ &&
-            alignof(std::decay_t<T>) <= MAX_SZ &&
-            std::is_nothrow_move_constructible<T>::value
-    >;
-
     template<typename T>
     void ctor(T&& value, small_tag)
     {
-        copier(&value, &local_data);
+        copier(&value, &stack_data);
         deleter = my_any::my_stack_delete<typename std::decay<T>::type>;
         data_place = STACK;
     }
@@ -145,7 +143,7 @@ struct my_any
                 deleter(heap_data);
                 break;
             case STACK:
-                deleter(&local_data);
+                deleter(&stack_data);
                 break;
             default:
                 break;
@@ -202,7 +200,7 @@ private:
     union
     {
         void* heap_data;
-        typename std::aligned_storage<MAX_SZ, MAX_SZ>::type local_data;
+        typename std::aligned_storage<MAX_SZ, MAX_SZ>::type stack_data;
     };
 
     creator_t creator;
@@ -247,7 +245,7 @@ private:
             case HEAP:
                 return heap_data;
             case STACK:
-                return (void*)&local_data;
+                return (void*)&stack_data;
             default:
                 return nullptr;
         }
@@ -260,13 +258,13 @@ void swap(my_any& lhs, my_any& rhs)
         if (rhs.data_place == my_any::state::STACK) {
             typename std::aligned_storage<my_any::MAX_SZ, my_any::MAX_SZ>::type tmp;
 
-            lhs.mover(&lhs.local_data, &tmp);
-            lhs.deleter(&lhs.local_data);
+            lhs.mover(&lhs.stack_data, &tmp);
+            lhs.deleter(&lhs.stack_data);
 
-            rhs.mover(&rhs.local_data, &lhs.local_data);
-            rhs.deleter(&rhs.local_data);
+            rhs.mover(&rhs.stack_data, &lhs.stack_data);
+            rhs.deleter(&rhs.stack_data);
 
-            lhs.mover(&tmp, &rhs.local_data);
+            lhs.mover(&tmp, &rhs.stack_data);
             lhs.deleter(&tmp);
         }
         else if (rhs.data_place == my_any::state::HEAP) {
@@ -277,14 +275,14 @@ void swap(my_any& lhs, my_any& rhs)
         if (lhs.data_place == my_any::state::STACK && rhs.data_place == my_any::state::HEAP) {
             void* tmp = rhs.heap_data;
 
-            lhs.mover(&lhs.local_data, &rhs.local_data);
-            lhs.deleter(&lhs.local_data);
+            lhs.mover(&lhs.stack_data, &rhs.stack_data);
+            lhs.deleter(&lhs.stack_data);
 
             lhs.heap_data = tmp;
         }
         else if (lhs.data_place == my_any::state::STACK && rhs.data_place == my_any::state::NONE) {
-            lhs.mover(&lhs.local_data, &rhs.local_data);
-            lhs.deleter(&lhs.local_data);
+            lhs.mover(&lhs.stack_data, &rhs.stack_data);
+            lhs.deleter(&lhs.stack_data);
         }
         else if (lhs.data_place == my_any::state::HEAP && rhs.data_place == my_any::state::NONE) {
             rhs.heap_data = lhs.heap_data;

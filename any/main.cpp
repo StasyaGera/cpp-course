@@ -46,13 +46,6 @@ struct regression1_type
 };
 
 int main() {
-    my_any a1("int");
-    my_any a2(4);
-    swap(a1, a2);
-    std::cout << any_cast<int>(a1) << ' ' << any_cast<char>(a2);
-
-    std::shared_ptr<int> ptrc(new int);
-
     using any = my_any;
 //    using any_cast;
 //    using linb::bad_any_cast;
